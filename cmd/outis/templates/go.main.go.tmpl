@@ -1,0 +1,87 @@
+// Command worker runs the calls your code hands off with client.Defer, once
+// the approvers authorize them. It polls Outis, serves /healthz, and on
+// SIGTERM stops claiming new work, finishes what's running, then exits.
+//
+//	export OUTIS_API_KEY=outis_sk_...   # scopes: read, execute
+//	export OUTIS_INTENT_KEY=...         # the key your proposers seal with
+//	go run .
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"sync/atomic"
+	"syscall"
+	"time"
+
+	outis "github.com/outis-auth/outis-go"
+)
+
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx); err != nil {
+		slog.Error("worker", "err", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) error {
+	keys := os.Getenv("OUTIS_INTENT_KEYS")
+	if keys == "" {
+		keys = os.Getenv("OUTIS_INTENT_KEY")
+	}
+	intentKeys, err := outis.ParseIntentKeys(keys)
+	if err != nil {
+		return err
+	}
+	w := outis.NewWorker(outis.New(os.Getenv("OUTIS_API_KEY")), outis.WorkerOptions{
+		Keys: intentKeys,
+		OnResult: func(r outis.Result) {
+			slog.Info("outis run", "request", r.RequestID, "call", r.Client+"."+r.Method, "status", r.Status, "ref", r.Reference, "err", r.Err)
+		},
+	})
+
+	// Register the clients a DeferTo may name, built with your own credentials.
+	// DeferTo{Worker: "stripe", Call: "v1transfers.create"} reaches this one:
+	//
+	//	w.Register("stripe", stripe.NewClient(os.Getenv("STRIPE_KEY")), outis.InjectIdempotencyKey())
+	//
+	// And name anything reflection can't reach:
+	w.Handle("example.echo", func(ctx context.Context, x outis.Execution, args json.RawMessage) (string, error) {
+		slog.Info("echo", "request", x.RequestID, "args", string(args), "idempotency_key", x.IdempotencyKey)
+		return x.RequestID, nil
+	})
+
+	var draining atomic.Bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(rw http.ResponseWriter, _ *http.Request) {
+		if draining.Load() {
+			http.Error(rw, "draining", http.StatusServiceUnavailable)
+			return
+		}
+		fmt.Fprintln(rw, "ok")
+	})
+	srv := &http.Server{Addr: ":8080", Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("health server", "err", err)
+		}
+	}()
+
+	ran := make(chan error, 1)
+	go func() { ran <- w.Run(ctx, 15*time.Second) }()
+
+	<-ctx.Done()
+	draining.Store(true)
+	err = <-ran
+	sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return errors.Join(err, srv.Shutdown(sctx))
+}
