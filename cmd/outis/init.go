@@ -20,8 +20,8 @@ var runtimes = map[string]string{
 }
 
 var elsewhere = map[string]string{
-	"node":        "npx @outis/sdk init worker",
-	"temporal-ts": "npx @outis/sdk init worker -runtime temporal",
+	"node":        "npx @outis-auth/sdk init worker",
+	"temporal-ts": "npx @outis-auth/sdk init worker -runtime temporal",
 	"python":      "python -m outis init worker",
 }
 

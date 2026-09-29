@@ -102,7 +102,7 @@ func TestInitWorker_Usage(t *testing.T) {
 		}
 	}
 	code, _, stderr := runCLI(nil, "", "init", "worker", "-runtime", "node", "-dir", t.TempDir())
-	if code != exitUsage || !strings.Contains(stderr, "npx @outis/sdk init worker") {
+	if code != exitUsage || !strings.Contains(stderr, "npx @outis-auth/sdk init worker") {
 		t.Errorf("node: exit %d, %s", code, stderr)
 	}
 }
