@@ -1,0 +1,290 @@
+{
+  "description_max": 64,
+  "cases": [
+    {
+      "name": "transfer, required fields only, extras dropped",
+      "action": "stripe.transfers.create",
+      "params": {
+        "amount": 2500000,
+        "currency": "usd",
+        "destination": "acct_9f2",
+        "transfer_group": "ORDER_95",
+        "metadata": {
+          "email": "jenny@example.com"
+        }
+      },
+      "options": {},
+      "shown": {
+        "amount": "2500000",
+        "currency": "usd",
+        "destination": "acct_9f2"
+      }
+    },
+    {
+      "name": "transfer, every field on a connected account",
+      "action": "stripe.transfers.create",
+      "params": {
+        "amount": 400,
+        "currency": "eur",
+        "destination": "acct_1",
+        "source_transaction": "ch_3Mt",
+        "description": "June sales"
+      },
+      "options": {
+        "stripe_account": "acct_1Nv0"
+      },
+      "shown": {
+        "amount": "400",
+        "currency": "eur",
+        "destination": "acct_1",
+        "source_transaction": "ch_3Mt",
+        "description": "June sales",
+        "stripe_account": "acct_1Nv0"
+      }
+    },
+    {
+      "name": "transfer, long description cut",
+      "action": "stripe.transfers.create",
+      "params": {
+        "amount": 400,
+        "currency": "usd",
+        "destination": "acct_1",
+        "description": "September payout for the northwest region, weeks one through four, including the adjustment"
+      },
+      "options": {},
+      "shown": {
+        "amount": "400",
+        "currency": "usd",
+        "destination": "acct_1",
+        "description": "September payout for the northwest region, weeks one through ..."
+      }
+    },
+    {
+      "name": "transfer, description at the cap kept whole",
+      "action": "stripe.transfers.create",
+      "params": {
+        "amount": 400,
+        "currency": "usd",
+        "destination": "acct_1",
+        "description": "Sixty-four characters exactly, no more and no less, for the cap."
+      },
+      "options": {},
+      "shown": {
+        "amount": "400",
+        "currency": "usd",
+        "destination": "acct_1",
+        "description": "Sixty-four characters exactly, no more and no less, for the cap."
+      }
+    },
+    {
+      "name": "payout, no destination or method invented",
+      "action": "stripe.payouts.create",
+      "params": {
+        "amount": 1100,
+        "currency": "usd",
+        "description": null
+      },
+      "options": {},
+      "shown": {
+        "amount": "1100",
+        "currency": "usd"
+      }
+    },
+    {
+      "name": "payout, every field on a connected account",
+      "action": "stripe.payouts.create",
+      "params": {
+        "amount": 5000,
+        "currency": "eur",
+        "destination": "ba_1MtIhL2eZvKYlo2C",
+        "method": "instant",
+        "source_type": "card",
+        "description": "Weekly",
+        "statement_descriptor": "ACME"
+      },
+      "options": {
+        "stripe_account": "acct_1Nv0"
+      },
+      "shown": {
+        "amount": "5000",
+        "currency": "eur",
+        "destination": "ba_1MtIhL2eZvKYlo2C",
+        "method": "instant",
+        "source_type": "card",
+        "description": "Weekly",
+        "stripe_account": "acct_1Nv0"
+      }
+    },
+    {
+      "name": "payout, accented long description cut",
+      "action": "stripe.payouts.create",
+      "params": {
+        "amount": 700,
+        "currency": "usd",
+        "method": "standard",
+        "description": "Café September payout for the northwest region, weeks one through four, including the adjustment"
+      },
+      "options": {},
+      "shown": {
+        "amount": "700",
+        "currency": "usd",
+        "method": "standard",
+        "description": "Café September payout for the northwest region, weeks one thr..."
+      }
+    },
+    {
+      "name": "refund, no amount means full",
+      "action": "stripe.refunds.create",
+      "params": {
+        "charge": "ch_1NirD82eZvKYlo2C",
+        "instructions_email": "jenny@example.com"
+      },
+      "options": {},
+      "shown": {
+        "charge": "ch_1NirD82eZvKYlo2C",
+        "amount": "full"
+      }
+    },
+    {
+      "name": "refund, every field on a connected account",
+      "action": "stripe.refunds.create",
+      "params": {
+        "payment_intent": "pi_1Gsz",
+        "amount": 1000,
+        "reason": "duplicate",
+        "reverse_transfer": true,
+        "refund_application_fee": false,
+        "metadata": {
+          "order": "95"
+        }
+      },
+      "options": {
+        "stripe_account": "acct_1Nv0"
+      },
+      "shown": {
+        "payment_intent": "pi_1Gsz",
+        "amount": "1000",
+        "reason": "duplicate",
+        "reverse_transfer": "true",
+        "refund_application_fee": "false",
+        "stripe_account": "acct_1Nv0"
+      }
+    },
+    {
+      "name": "refund, charge with a partial amount and empty reason",
+      "action": "stripe.refunds.create",
+      "params": {
+        "charge": "ch_1Nir",
+        "amount": 250,
+        "reason": ""
+      },
+      "options": {},
+      "shown": {
+        "charge": "ch_1Nir",
+        "amount": "250"
+      }
+    },
+    {
+      "name": "customer delete",
+      "action": "stripe.customers.delete",
+      "customer": "cus_NffrFeUfNV2Hib",
+      "options": {},
+      "shown": {
+        "customer": "cus_NffrFeUfNV2Hib"
+      }
+    },
+    {
+      "name": "customer delete on a connected account",
+      "action": "stripe.customers.delete",
+      "customer": "cus_NffrFeUfNV2Hib",
+      "options": {
+        "stripe_account": "acct_1Nv0"
+      },
+      "shown": {
+        "customer": "cus_NffrFeUfNV2Hib",
+        "stripe_account": "acct_1Nv0"
+      }
+    },
+    {
+      "name": "transfer without destination refused",
+      "action": "stripe.transfers.create",
+      "params": {
+        "amount": 400,
+        "currency": "usd",
+        "description": "June sales"
+      },
+      "options": {},
+      "error": "destination"
+    },
+    {
+      "name": "transfer without amount refused on a connected account",
+      "action": "stripe.transfers.create",
+      "params": {
+        "currency": "usd",
+        "destination": "acct_1"
+      },
+      "options": {
+        "stripe_account": "acct_1Nv0"
+      },
+      "error": "amount"
+    },
+    {
+      "name": "transfer with empty currency refused",
+      "action": "stripe.transfers.create",
+      "params": {
+        "amount": 400,
+        "currency": "",
+        "destination": "acct_1"
+      },
+      "options": {},
+      "error": "currency"
+    },
+    {
+      "name": "payout without currency refused",
+      "action": "stripe.payouts.create",
+      "params": {
+        "amount": 1100,
+        "method": "instant"
+      },
+      "options": {},
+      "error": "currency"
+    },
+    {
+      "name": "payout with null amount refused",
+      "action": "stripe.payouts.create",
+      "params": {
+        "amount": null,
+        "currency": "usd"
+      },
+      "options": {},
+      "error": "amount"
+    },
+    {
+      "name": "refund without charge or payment intent refused",
+      "action": "stripe.refunds.create",
+      "params": {
+        "amount": 1000,
+        "reason": "duplicate"
+      },
+      "options": {},
+      "error": "charge or payment_intent"
+    },
+    {
+      "name": "refund with empty charge and null payment intent refused",
+      "action": "stripe.refunds.create",
+      "params": {
+        "charge": "",
+        "payment_intent": null
+      },
+      "options": {},
+      "error": "charge or payment_intent"
+    },
+    {
+      "name": "customer delete without an id refused",
+      "action": "stripe.customers.delete",
+      "customer": "",
+      "options": {},
+      "error": "customer"
+    }
+  ]
+}

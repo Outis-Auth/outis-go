@@ -1,0 +1,54 @@
+{
+  "key": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+  "key_url": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+  "kid": "630dcd2966c43366",
+  "nonce": "oKGio6Slpqeoqaqr",
+  "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "nonce_hex": "a0a1a2a3a4a5a6a7a8a9aaab",
+  "note": "Fixed key and nonce for interop tests only; a real seal draws a random nonce every time.",
+  "intents": [
+    {
+      "action": "stripe.transfer",
+      "aad_hex": "6f757469732e696e74656e742e7631007374726970652e7472616e73666572",
+      "plaintext": "{\"v\":1,\"client\":\"stripe\",\"method\":\"transfers.create\",\"args\":[{\"amount\":25000000,\"destination\":\"acct_9f2\"}]}",
+      "digest": "sha256:74e46068d066557afa62f9034ab4bf9d4dda0fc53d0b3b9975feeab73a31ce44",
+      "envelope": {
+        "v": 1,
+        "alg": "A256GCM",
+        "kid": "630dcd2966c43366",
+        "nonce": "oKGio6Slpqeoqaqr",
+        "ciphertext": "nToKD3_6Lp0BCe62aQ7i5FLfLWL7xydOsCxL4wvDGmXwTGWL3UM9Tjn5drsnGfGcJm8jak7yewwmLSlk_wun0dnT8AFEh97SwdLPKL_-_Jbvb87Xsaj3G5ocUfSToG_17Odf9DrIvbnjhntqxhhk0hWQXCBDxekOdTN3"
+      },
+      "params": {
+        "amount": "25000000",
+        "to": "acct_9f2",
+        "intent": "sha256:74e46068d066557afa62f9034ab4bf9d4dda0fc53d0b3b9975feeab73a31ce44"
+      },
+      "operation_hash": "sha256:6913119d062f490d5913b64cd0fab345ef1a046e39a7061aee796a59340d32e4"
+    },
+    {
+      "action": "db.restore",
+      "aad_hex": "6f757469732e696e74656e742e76310064622e726573746f7265",
+      "plaintext": "{\"v\":1,\"client\":\"db\",\"method\":\"restore\",\"args\":[\"payments\",{\"snapshot\":\"snap_0412\",\"note\":\"héllo, wörld\"}]}",
+      "digest": "sha256:5d28c0799683c20ea33e698b1f360dc457f5e437c96e3575180298216dadeca2",
+      "envelope": {
+        "v": 1,
+        "alg": "A256GCM",
+        "kid": "630dcd2966c43366",
+        "nonce": "oKGio6Slpqeoqaqr",
+        "ciphertext": "nToKD3_6Lp0BCe62aQ7i5FLIOzK-lS8J6GZJ4l2RV3O3BTOQ3UdxEX39dq96WLmiZWsnMQ-1dAoyfCclhgPr0cTP7QBEh97Ch4yeaND--Iv_KYeGq67tH8xPHPJyMyH44KgL3MAY_ff6-XsN-JPU5J7lB7CEY9cOjFM1skA"
+      },
+      "params": {
+        "db": "payments",
+        "intent": "sha256:5d28c0799683c20ea33e698b1f360dc457f5e437c96e3575180298216dadeca2"
+      },
+      "operation_hash": "sha256:309267a682fad7a7dd05b3edfe5a20a1277f66733c838349c3f98d7db8fbc10a"
+    }
+  ],
+  "callback_secret": [
+    {
+      "api_key": "outis_sk_test",
+      "secret_hex": "640d74bb93646ec2c790001a14516d3507d38673bc2b7bfb2917287c5ea1ff2b"
+    }
+  ]
+}

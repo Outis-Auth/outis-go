@@ -1,0 +1,19 @@
+{
+  "operation_hash": [
+    {
+      "action": "deploy.production",
+      "params": {},
+      "hash": "sha256:da61379e121b0a00280eba6ee7d631e3c0c186e7da15ade5b8d15c901d0df8a9"
+    },
+    {
+      "action": "deploy.production",
+      "params": {"repo": "acme/payments-api", "env": "production", "sha": "8d93f71"},
+      "hash": "sha256:54feb247e0ae56c01d430beb1b1c4c604384ca91832a1ccb435fe2753fb2be9e"
+    },
+    {
+      "action": "treasury.transfer",
+      "params": {"amount": "250000.00", "currency": "USD", "note": "héllo, wörld"},
+      "hash": "sha256:02f4614a8117cdcd0407e0d085a6fa77ceb3814a0c68ab23ce416761bf64049e"
+    }
+  ]
+}

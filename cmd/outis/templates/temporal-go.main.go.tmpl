@@ -1,0 +1,179 @@
+// Command worker runs a Temporal workflow that waits on Outis before an
+// Outis worker runs the approved call, plus the bridge that turns Outis
+// webhooks into the workflow's signal.
+//
+//	go get go.temporal.io/sdk github.com/outis-auth/outis-go
+//	export OUTIS_API_KEY=outis_sk_...   # scopes: propose, read, execute
+//	export OUTIS_INTENT_KEY=...
+//	export OUTIS_WEBHOOK_SECRET=whsec_...
+//	go run .
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	outis "github.com/outis-auth/outis-go"
+	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/worker"
+	"go.temporal.io/sdk/workflow"
+)
+
+const (
+	taskQueue      = "outis"
+	decisionSignal = "outisDecision"
+)
+
+func main() {
+	key, err := outis.ParseIntentKey(os.Getenv("OUTIS_INTENT_KEY"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	oc := outis.New(os.Getenv("OUTIS_API_KEY"), outis.WithIntentKey(key))
+	ow := outis.NewWorker(oc, outis.WorkerOptions{Keys: [][]byte{key}})
+	// Register the clients intents may call, built with your own credentials.
+	ow.Register("example", &Example{})
+
+	tc, err := client.Dial(client.Options{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tc.Close()
+
+	go func() {
+		srv := &http.Server{Addr: ":8080", Handler: bridge(tc, os.Getenv("OUTIS_WEBHOOK_SECRET")), ReadHeaderTimeout: 5 * time.Second}
+		log.Fatal(srv.ListenAndServe())
+	}()
+
+	w := worker.New(tc, taskQueue, worker.Options{})
+	w.RegisterWorkflow(ApprovedWorkflow)
+	w.RegisterActivity(&Activities{Outis: oc, Worker: ow})
+	if err := w.Run(worker.InterruptCh()); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// Input is what the workflow is asked to do.
+type Input struct {
+	Requester string
+	Message   string
+}
+
+// ApprovedWorkflow proposes a sealed call, waits up to three days for the
+// operators, and runs it once authorized.
+func ApprovedWorkflow(ctx workflow.Context, in Input) (string, error) {
+	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: 2 * time.Minute})
+	var a *Activities
+
+	var requestID string
+	if err := workflow.ExecuteActivity(ctx, a.Propose, in).Get(ctx, &requestID); err != nil {
+		return "", err
+	}
+
+	var outcome string
+	sel := workflow.NewSelector(ctx)
+	sel.AddReceive(workflow.GetSignalChannel(ctx, decisionSignal), func(c workflow.ReceiveChannel, _ bool) {
+		c.Receive(ctx, &outcome)
+	})
+	sel.AddFuture(workflow.NewTimer(ctx, 72*time.Hour), func(workflow.Future) { outcome = "timeout" })
+	sel.Select(ctx)
+	if outcome != string(outis.OutcomeAuthorized) {
+		return "", fmt.Errorf("request %s not authorized: %s", requestID, outcome)
+	}
+
+	var ref string
+	err := workflow.ExecuteActivity(ctx, a.Execute, requestID).Get(ctx, &ref)
+	return ref, err
+}
+
+// Activities hold the Outis client that proposes and the worker that runs.
+type Activities struct {
+	Outis  *outis.Client
+	Worker *outis.Worker
+}
+
+// Propose seals the call and creates the request, keyed on the workflow id
+// so a retried activity gets the same request back.
+func (a *Activities) Propose(ctx context.Context, in Input) (string, error) {
+	wf := activity.GetInfo(ctx).WorkflowExecution.ID
+	d, err := a.Outis.Defer(ctx, outis.GuardOptions{
+		Action:         "example.announce",
+		Requester:      in.Requester,
+		ShowApprovers:  map[string]string{"message": in.Message, "workflow_id": wf},
+		IdempotencyKey: "temporal:" + wf,
+		DeferTo:        &outis.DeferTo{Worker: "example", Call: "announce", Args: []any{in.Message}},
+	})
+	if err != nil {
+		return "", err
+	}
+	return d.ID, nil
+}
+
+// Execute claims, verifies and runs the intent. A retry after the run was
+// reported reads the reference back instead of running again.
+func (a *Activities) Execute(ctx context.Context, requestID string) (string, error) {
+	res, err := a.Worker.Execute(ctx, requestID)
+	var apiErr *outis.APIError
+	if errors.As(err, &apiErr) && apiErr.Code == "already_reported" {
+		r, err := a.Outis.Requests.Retrieve(ctx, requestID)
+		if err != nil {
+			return "", err
+		}
+		if r.Execution.State == outis.ExecutionSucceeded {
+			return r.Execution.Reference, nil
+		}
+		return "", temporal.NewNonRetryableApplicationError(r.Execution.Error, "outis_execution_failed", nil)
+	}
+	if err != nil {
+		return "", err
+	}
+	if res.Status != outis.ExecutionSucceeded {
+		return "", temporal.NewNonRetryableApplicationError(res.Err.Error(), "outis_execution_failed", res.Err)
+	}
+	return res.Reference, nil
+}
+
+// bridge turns a verified Outis webhook into the workflow's decision signal.
+// Outis delivers again when it doesn't get a 2xx.
+func bridge(tc client.Client, secret string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+		if err != nil {
+			http.Error(w, "body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		ev, err := outis.VerifyWebhook(body, r.Header, secret, nil)
+		if err != nil {
+			http.Error(w, "bad signature", http.StatusBadRequest)
+			return
+		}
+		req := ev.Data.Request
+		wf := req.Params["workflow_id"]
+		if wf == "" || req.Outcome == "" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if err := tc.SignalWorkflow(r.Context(), wf, "", decisionSignal, string(req.Outcome)); err != nil {
+			http.Error(w, "signal failed", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+}
+
+// Example stands in for a client of your own.
+type Example struct{}
+
+// Announce is reached by the intent's "example.announce".
+func (e *Example) Announce(ctx context.Context, message string) (string, error) {
+	log.Printf("announcing %q with idempotency key %s", message, outis.IdempotencyKey(ctx))
+	return "announce_" + outis.IdempotencyKey(ctx), nil
+}
