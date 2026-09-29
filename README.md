@@ -159,7 +159,7 @@ go install github.com/outis-auth/outis-go/cmd/outis@latest
 outis gate -action db.restore -requester keith -param db=payments -timeout 5m ./restore.sh
 ```
 
-`outis gate` waits for approval, then runs the command. It also has `request`, `get`, `wait`, `hash`, `verify-webhook` and `init worker`.
+`outis gate` waits for approval, then runs the command. It also has `request`, `get`, `wait`, `hash`, `verify-webhook` and `init worker`. Prebuilt binaries for Linux, macOS and Windows are on the [releases page](https://github.com/outis-auth/outis-go/releases).
 
 **`outis gate` isn't a security boundary on its own.** If someone can run `./restore.sh` directly, gate stops nothing. It only protects an operation when the credentials that operation needs exist only where gate runs, like a locked-down CI step or a dedicated job.
 
